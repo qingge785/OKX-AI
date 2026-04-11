@@ -11,9 +11,10 @@ author: qingge785
 每 15 分钟自动触发一次
 
 # Step 0 · 准备工作
-1. 调用 swap_set_leverage 把 BTC-USDT-SWAP 杠杆设为 4，模式 cross
-2. 调用 swap_get_positions 检查是否有 BTC 持仓，若有则跳过本轮
-3. 调用 account_balance 查询可用余额
+1.先调用 **market_get_ticker** 获取 BTC-USDT-SWAP 的**最新实时价格**（instId = "BTC-USDT-SWAP"）
+2. 调用 swap_set_leverage 把 BTC-USDT-SWAP 杠杆设为 4，模式 cross
+3. 调用 swap_get_positions 检查是否有 BTC 持仓，若有则跳过本轮
+4. 调用 account_balance 查询可用余额
 
 # Step 1 · 行情数据采集
 - 调用 **market_get_indicator** 获取 OKX 自带撑压线指标（固定最近 120 根 1 小时 K 线计算）：
@@ -69,8 +70,8 @@ AI 提取当前最新的：
 - 仅模拟模式 + 只做 BTC
 
 # 输出要求
-每次必须先输出：
-1. OKX 撑压线当前具体位置（基于最近120根1H K线） + 当前价格距离
-2. 最近 3 根 15 分钟 K 线的详细形态判断
-3. 完整推理 + 最终决策
-4. 工具调用详情（包括 market_get_indicator 的 limit 参数）
+每次必须**首先输出**：
+1. **通过 market_get_ticker 获取的当前真实 BTC 价格**（必须显示最新价格）
+2. OKX 撑压线位置（基于120根1H） + 当前价格距离
+3. 最近 3 根 15 分钟 K 线形态判断
+4. 完整推理 + 决策
