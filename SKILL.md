@@ -1,81 +1,79 @@
 ---
-name: BTC 4x 全仓 OKX撑压线 + 15分钟形态策略 V1.6（固定120根1H）
-description: 使用OKX 1小时自带撑压线指标（固定最近120根1H K线计算）+ 15分钟K线特定形态入场，模拟盘测试专用。
-version: 1.6
+name: BTC 4x 全仓 Donchian 通道策略 V3.0
+description: 使用唐奇安通道作为动态支撑压力位 + 15分钟形态入场，有持仓时严格跳过，模拟盘专用
+version: 3.0
 author: qingge785
 ---
 
-# 模拟盘 · 4x全仓 BTC OKX撑压线 + 15分钟形态策略 V1.6（Demo模式）
+# 模拟盘 · BTC 4x 全仓 Donchian 通道策略 V3.0
 
 # 执行节奏
 每 15 分钟自动触发一次
 
-# Step 0 · 准备工作（最先检查持仓）
-1. 调用 swap_set_leverage 把 BTC-USDT-SWAP 杠杆设为 4，模式 cross
-2. **重要检查**：调用 swap_get_positions 查询 BTC-USDT-SWAP 当前持仓情况
-   - 如果存在任何持仓（posSide = long 或 short，且数量 > 0），则**直接跳过本轮**，不进行任何开仓操作
-3. 调用 market_get_ticker 获取最新实时价格
+# Step 0 · 准备工作（优先级最高）
+1. 调用 market_get_ticker 获取 BTC-USDT-SWAP 最新实时价格
+2. 调用 swap_set_leverage 设置杠杆为 4，模式 cross
+3. 调用 swap_get_positions 检查持仓
+   - 如果存在任何持仓（数量 > 0），则**立即跳过本轮**，输出“存在持仓，本轮禁止开新单”
 4. 调用 account_balance 查询可用余额
 
-# Step 1 · 行情数据采集
-- 调用 **market_get_indicator** 获取 OKX 自带撑压线指标（固定最近 120 根 1 小时 K 线计算）：
-  - instId = "BTC-USDT-SWAP"
-  - indicator = "support_resistance"
-  - bar = "1H"
-  - limit = 120     # ← 关键！固定使用最近120根1H K线计算撑压线
-- 用 market_get_candles 获取 BTC-USDT-SWAP 的 **15分钟 K 线最近 30 根**（用于形态判断）
+# Step 1 · 数据采集
+- 调用 market_get_candles 获取 **1小时 K 线最近 100 根**（用于 Donchian 通道）
+- 调用 market_get_candles 获取 **15分钟 K 线最近 50 根**（用于形态判断）
 
-# Step 2 · OKX 1小时撑压线（基于120根K线）
-AI 提取当前最新的：
-- 主要支撑线（Support Lines）
-- 主要压力线（Resistance Lines）
-- 当前价格与各线的距离
+# Step 2 · Donchian 通道计算（动态支撑压力）
+调用 market_get_indicator 获取唐奇安通道：
+- instId = "BTC-USDT-SWAP"
+- indicator = "donchian"
+- bar = "1H"
+- limit = 100
+- params = "20"     # 20 周期唐奇安通道（可调整）
 
-# Step 3 · AI 综合判断（核心形态逻辑）
-**只有在 Step 0 检查到无持仓时，才继续判断：**
-严格按以下形态判断：
+AI 提取：
+- 上轨（Upper Band）→ 动态压力位
+- 下轨（Lower Band）→ 动态支撑位
+- 当前价格与上下轨的距离
 
+# Step 3 · 形态判断（仅在无持仓时）
 **做多信号（Long）**：
-- 当前价格已触及或进入 OKX 1小时**支撑线**附近
-- 第1根 15分钟K线：触及支撑线，但**最低价没有跌破支撑线下1.5%**
-- 第2根 15分钟K线：为**上涨K线**（收盘价 > 开盘价）
-- 第3根 15分钟K线：立即触发 → 市价做多
+- 当前价格接近或触及 Donchian 下轨（距离 ≤ 0.5%）
+- 第1根15分钟K线触及下轨，但最低价未跌破下轨下方1.5%
+- 第2根15分钟K线为上涨K线（收盘 > 开盘）
+- 第3根15分钟K线触发 → 市价做多
 
 **做空信号（Short）**：
-- 当前价格已触及或进入 OKX 1小时**压力线**附近
-- 第1根 15分钟K线：触及压力线，但**最高价没有突破压力线上1.5%**
-- 第2根 15分钟K线：为**下跌K线**（收盘价 < 开盘价）
-- 第3根 15分钟K线：立即触发 → 市价做空
+- 当前价格接近或触及 Donchian 上轨（距离 ≤ 0.5%）
+- 第1根15分钟K线触及上轨，但最高价未突破上轨上方1.5%
+- 第2根15分钟K线为下跌K线（收盘 < 开盘）
+- 第3根15分钟K线触发 → 市价做空
 
-如果无持仓且满足以上完整形态 → 执行开仓  
-否则 → 本轮跳过
+如果不满足完整形态或已有持仓 → 本轮跳过
 
-# Step 4 · 执行下单（市价全仓 4x）
-使用 swap_place_order：
+# Step 4 · 执行下单（严格带 posSide）
+只有无持仓且信号触发时：
 - instId = "BTC-USDT-SWAP"
 - side = <buy 或 sell>
 - ordType = "market"
-- **posSide = <long 或 short>**     # 必须严格传递，根据做多/做空决定
+- posSide = <long 或 short>     # 必须传递
 - tdMode = "cross"
-- sz = <计算使名义价值 ≈ 账户可用余额 × 4 的张数>
+- sz = <根据可用余额计算的4x全仓张数>
 - tag = "agentTradeKit"
-**重要提醒给AI**：在 long_short_mode 下，posSide 参数是必须的，不能省略，否则会报 51010 错误。
 
-# Step 5 · 立即设置止盈止损
-开仓后立刻调用 swap_place_algo_order：
-- 止损：开仓价 × 0.99（多）或 × 1.01（空）
-- 止盈：对侧最近的 OKX 1小时压力/支撑线
+# Step 5 · 止盈止损
+- 止损：多头 = 开仓价 × 0.99，空头 = 开仓价 × 1.01
+- 止盈：对侧 Donchian 通道（上轨或下轨）
 - 数量 = 全部持仓
 
-# 严格风控
-- 全仓 4x 杠杆
+# 风控规则
+- 有持仓时严格禁止开新单
 - 单笔止损固定 1%
-- 当日浮亏 > 8% 停止开仓
-- 仅模拟模式 + 只做 BTC
+- 全仓 4x 杠杆
+- 仅模拟盘执行
 
 # 输出要求
-每次必须**首先输出**：
-1. **通过 market_get_ticker 获取的当前真实 BTC 价格**（必须显示最新价格）
-2. OKX 撑压线位置（基于120根1H） + 当前价格距离
-3. 最近 3 根 15 分钟 K 线形态判断
-4. 完整推理 + 决策
+每次必须先输出：
+1. 当前真实 BTC 价格
+2. 当前持仓情况（是否有持仓）
+3. Donchian 通道上轨 / 下轨 + 当前价格距离
+4. 最近 3 根 15分钟 K 线形态判断
+5. 最终决策及工具调用详情（显示 posSide 是否正确传递）
