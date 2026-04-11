@@ -10,10 +10,11 @@ author: qingge785
 # 执行节奏
 每 15 分钟自动触发一次
 
-# Step 0 · 准备工作
-1.先调用 **market_get_ticker** 获取 BTC-USDT-SWAP 的**最新实时价格**（instId = "BTC-USDT-SWAP"）
-2. 调用 swap_set_leverage 把 BTC-USDT-SWAP 杠杆设为 4，模式 cross
-3. 调用 swap_get_positions 检查是否有 BTC 持仓，若有则跳过本轮
+# Step 0 · 准备工作（最先检查持仓）
+1. 调用 swap_set_leverage 把 BTC-USDT-SWAP 杠杆设为 4，模式 cross
+2. **重要检查**：调用 swap_get_positions 查询 BTC-USDT-SWAP 当前持仓情况
+   - 如果存在任何持仓（posSide = long 或 short，且数量 > 0），则**直接跳过本轮**，不进行任何开仓操作
+3. 调用 market_get_ticker 获取最新实时价格
 4. 调用 account_balance 查询可用余额
 
 # Step 1 · 行情数据采集
@@ -31,6 +32,7 @@ AI 提取当前最新的：
 - 当前价格与各线的距离
 
 # Step 3 · AI 综合判断（核心形态逻辑）
+**只有在 Step 0 检查到无持仓时，才继续判断：**
 严格按以下形态判断：
 
 **做多信号（Long）**：
@@ -45,17 +47,19 @@ AI 提取当前最新的：
 - 第2根 15分钟K线：为**下跌K线**（收盘价 < 开盘价）
 - 第3根 15分钟K线：立即触发 → 市价做空
 
-不满足完整形态 → 本轮跳过
+如果无持仓且满足以上完整形态 → 执行开仓  
+否则 → 本轮跳过
 
 # Step 4 · 执行下单（市价全仓 4x）
 使用 swap_place_order：
 - instId = "BTC-USDT-SWAP"
 - side = <buy 或 sell>
 - ordType = "market"
-- posSide = <long 或 short>
+- **posSide = <long 或 short>**     # 必须严格传递，根据做多/做空决定
 - tdMode = "cross"
 - sz = <计算使名义价值 ≈ 账户可用余额 × 4 的张数>
 - tag = "agentTradeKit"
+**重要提醒给AI**：在 long_short_mode 下，posSide 参数是必须的，不能省略，否则会报 51010 错误。
 
 # Step 5 · 立即设置止盈止损
 开仓后立刻调用 swap_place_algo_order：
