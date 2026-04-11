@@ -1,3 +1,11 @@
+---
+name: BTC 4x OrderBlock 全仓策略
+description: 只交易 BTC-USDT-SWAP 的 4x 全仓 Order Block + Pivot Points 策略，每15分钟巡查一次，模拟盘专用
+version: 1.0
+author: qingge785
+---
+
+
 # 模拟盘 · 4x全仓 BTC Order Block + Pivot Points 策略 V1.0（Demo模式）
 
 # 执行节奏
@@ -9,7 +17,7 @@
 3. 调用 account_balance 查询可用余额
 
 # Step 1 · 行情数据采集（仅 BTC）
-- 用 market_get_candles 获取 BTC-USDT-SWAP 的 **4小时 K 线最近 100 根**（用于识别 Order Block 和 Pivot Points）
+- 用 market_get_candles 获取 BTC-USDT-SWAP 的 **1小时 K 线最近 100 根**（用于识别 Order Block 和 Pivot Points）
 - 用 market_get_candles 获取 BTC-USDT-SWAP 的 **15分钟 K 线最近 30 根**（用于 3 连阳/阴判断）
 
 # Step 2 · 支撑压力位识别（Order Block + Pivot Points）
@@ -21,7 +29,7 @@ AI 请严格按以下规则识别：
 - 只取**最近 1-2 个未被完全突破的 Order Block**，并标注是否被测试过。
 
 **Pivot Points（辅助确认）**：
-用最近一根 4h K 线计算标准 Pivot：
+用最近一根 1h K 线计算标准 Pivot：
 - Pivot = (High + Low + Close) / 3
 - R1 = 2×Pivot - Low，S1 = 2×Pivot - High
 - R2/S2 同理
@@ -63,6 +71,6 @@ AI 请严格按以下规则识别：
 # 输出要求
 每次必须先输出：
 1. 当前 BTC 的 Order Block 位置 + Pivot Points（S1/R1/R2/S2）
-2. 15 分钟 3 根 K 线判断
+2. 15 分钟 2 根 K 线判断
 3. 完整推理 + 决策
 4. 工具调用详情
