@@ -1,11 +1,11 @@
 ---
-name: BTC 4x 全仓 OrderBlock 策略（1小时K线测试版）
-description: 只交易 BTC-USDT-SWAP 的 4x 全仓 Order Block + Pivot Points 策略，使用1小时K线识别支撑阻力，每15分钟巡查一次，模拟盘测试专用。Order Block 区间扩大 ±1.8%。
-version: 1.2
+name: BTC 4x 全仓 OKX撑压线 + 15分钟形态策略 V1.4
+description: 使用OKX 1小时自带撑压线指标 + 15分钟K线特定形态入场（第1根触及不破1.5% + 第2根反向K线 → 第3根立即市价全仓4x），模拟盘测试专用。
+version: 1.4
 author: qingge785
 ---
 
-# 模拟盘 · 4x全仓 BTC Order Block + Pivot Points（1小时K线测试版） V1.2（Demo模式）
+# 模拟盘 · 4x全仓 BTC OKX撑压线 + 15分钟形态策略 V1.4（Demo模式）
 
 # 执行节奏
 每 15 分钟自动触发一次
@@ -15,34 +15,35 @@ author: qingge785
 2. 调用 swap_get_positions 检查是否有 BTC 持仓，若有则跳过本轮
 3. 调用 account_balance 查询可用余额
 
-# Step 1 · 行情数据采集（仅 BTC）
-- 用 market_get_candles 获取 BTC-USDT-SWAP 的 **1小时 K 线最近 120 根**（用于 Order Block 和 Pivot Points）
-- 用 market_get_candles 获取 BTC-USDT-SWAP 的 **15分钟 K 线最近 40 根**（用于 3 连阳/阴判断）
+# Step 1 · 行情数据采集
+- 用 market_get_indicator 获取 OKX 自带**撑压线指标**（1小时图）
+  - instId = "BTC-USDT-SWAP"
+  - indicator = "support_resistance"
+  - bar = "1H"
+- 用 market_get_candles 获取 BTC-USDT-SWAP 的 **15分钟 K 线最近 30 根**（用于形态判断）
 
-# Step 2 · 支撑压力位识别（1小时K线 + 宽区间）
-AI 请严格按以下规则识别：
+# Step 2 · OKX 1小时撑压线
+AI 提取当前最新的：
+- 主要支撑线（Support Lines）
+- 主要压力线（Resistance Lines）
+- 当前价格与各线的距离
 
-**Order Block（主要信号，扩大区间）**：
-- 看涨 Order Block（多头支撑）：最近一次强上涨前的最后一根明显阴线实体低点，向上下各扩展 **1.8%** 作为支撑区间
-- 看跌 Order Block（空头压力）：最近一次强下跌前的最后一根明显阳线实体高点，向上下各扩展 **1.8%** 作为压力区间
-- 只取最近 1-2 个**未被完全突破**的 Order Block
+# Step 3 · AI 综合判断（核心新形态逻辑）
+严格按以下形态判断（只在第3根15分钟K线时决定是否立即入场）：
 
-**Pivot Points（辅助确认）**：
-用最近一根 **1小时** K 线计算标准 Pivot：
-- Pivot = (High + Low + Close) / 3
-- R1 = 2×Pivot - Low，S1 = 2×Pivot - High
-- R2/S2 同理
-
-# Step 3 · AI 综合判断（核心逻辑）
 **做多信号（Long）**：
-- 当前价格进入看涨 Order Block 或 S1 附近（距离 ≤ 2.0%）
-- 最近 **2 根** 15 分钟 K 线均为上涨 K 线（收盘 > 开盘）
+- 当前价格已触及或进入 OKX 1小时**支撑线**附近
+- 第1根 15分钟K线：触及支撑线，但**最低价没有跌破支撑线下1.5%**
+- 第2根 15分钟K线：为**上涨K线**（收盘价 > 开盘价）
+- 第3根 15分钟K线：立即触发 → 市价做多
 
 **做空信号（Short）**：
-- 当前价格进入看跌 Order Block 或 R1 附近（距离 ≤ 2.0%）
-- 最近 **2 根** 15 分钟 K 线均为下跌 K 线（收盘 < 开盘）
+- 当前价格已触及或进入 OKX 1小时**压力线**附近
+- 第1根 15分钟K线：触及压力线，但**最高价没有突破压力线上1.5%**
+- 第2根 15分钟K线：为**下跌K线**（收盘价 < 开盘价）
+- 第3根 15分钟K线：立即触发 → 市价做空
 
-无清晰信号 → 本轮跳过
+如果不满足以上完整形态 → 本轮跳过
 
 # Step 4 · 执行下单（市价全仓 4x）
 使用 swap_place_order：
@@ -56,8 +57,8 @@ AI 请严格按以下规则识别：
 
 # Step 5 · 立即设置止盈止损
 开仓后立刻调用 swap_place_algo_order：
-- 止损：开仓价 × 0.99（多）或 × 1.01（空）
-- 止盈：对侧最近的 Order Block 或 R2/S2
+- 止损：开仓价 × 0.99（多）或 × 1.01（空）   # 固定1%
+- 止盈：对侧最近的 OKX 1小时压力/支撑线
 - 数量 = 全部持仓
 
 # 严格风控
@@ -68,7 +69,7 @@ AI 请严格按以下规则识别：
 
 # 输出要求
 每次必须先输出：
-1. 当前 BTC 的 Order Block 区间（带 ±1.8% 缓冲，使用1小时K线） + Pivot Points
-2. 最近 2 根 15 分钟 K 线判断
-3. 完整推理 + 决策
+1. OKX 1小时撑压线当前具体位置 + 当前价格距离
+2. 最近 3 根 15 分钟 K 线的详细形态判断（是否满足第1根不破1.5% + 第2根反向）
+3. 完整推理 + 最终决策（是否在第3根立即入场）
 4. 工具调用详情
