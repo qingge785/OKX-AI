@@ -1,11 +1,11 @@
 ---
-name: BTC 4x 全仓 OKX撑压线 + 15分钟形态策略 V1.5（固定120根1H）
+name: BTC 4x 全仓 OKX撑压线 + 15分钟形态策略 V1.6（固定120根1H）
 description: 使用OKX 1小时自带撑压线指标（固定最近120根1H K线计算）+ 15分钟K线特定形态入场，模拟盘测试专用。
-version: 1.5
+version: 1.6
 author: qingge785
 ---
 
-# 模拟盘 · 4x全仓 BTC OKX撑压线 + 15分钟形态策略 V1.5（Demo模式）
+# 模拟盘 · 4x全仓 BTC OKX撑压线 + 15分钟形态策略 V1.6（Demo模式）
 
 # 执行节奏
 每 15 分钟自动触发一次
