@@ -1,68 +1,68 @@
-# 模拟盘 · 4x全仓 BTC 支撑压力位 + 15分钟3连阳/阴策略 V1.0（Demo模式）
+# 模拟盘 · 4x全仓 BTC Order Block + Pivot Points 策略 V1.0（Demo模式）
 
 # 执行节奏
-每 15 分钟自动触发一次（固定间隔）
+每 15 分钟自动触发一次
 
 # Step 0 · 准备工作（每次触发都先执行）
-1. 调用 swap_set_leverage 把 BTC-USDT-SWAP 的杠杆设置为 4，模式为 cross（交叉保证金）
-2. 调用 swap_get_positions 检查当前 BTC 是否已有持仓。如果已有持仓，则本轮直接跳过，不开新仓。
+1. 调用 swap_set_leverage 把 BTC-USDT-SWAP 杠杆设为 4，模式 cross
+2. 调用 swap_get_positions 检查是否有 BTC 持仓，若有则跳过本轮
 3. 调用 account_balance 查询可用余额
 
 # Step 1 · 行情数据采集（仅 BTC）
-- 用 market_get_candles 获取 **BTC-USDT-SWAP 的 4小时 K 线最近 100 根**（用于识别支撑压力位）
-- 用 market_get_candles 获取 **BTC-USDT-SWAP 的 15分钟 K 线最近 30 根**（用于判断 3 连阳/阴）
+- 用 market_get_candles 获取 BTC-USDT-SWAP 的 **4小时 K 线最近 100 根**（用于识别 Order Block 和 Pivot Points）
+- 用 market_get_candles 获取 BTC-USDT-SWAP 的 **15分钟 K 线最近 30 根**（用于 3 连阳/阴判断）
 
-同时获取当前最新价格。
+# Step 2 · 支撑压力位识别（Order Block + Pivot Points）
+AI 请严格按以下规则识别：
 
-# Step 2 · 自动识别支撑位和压力位（基于 4h K 线）
-AI 从最近 100 根 4h K 线中识别：
-- **支撑位**：最近 3 次明显 Swing Low（低点），取最近一次有效低点 ±0.5% 作为支撑区间
-- **压力位**：最近 3 次明显 Swing High（高点），取最近一次有效高点 ±0.5% 作为压力区间
-- 记录当前价格与支撑/压力位的距离百分比
+**Order Block（主要信号）**：
+- 看涨 Order Block（多头支撑）：最近一次强上涨前的最后一根**阴线**（实体收在低点附近），作为潜在买入区。
+- 看跌 Order Block（空头压力）：最近一次强下跌前的最后一根**阳线**（实体收在高点附近），作为潜在卖出区。
+- 只取**最近 1-2 个未被完全突破的 Order Block**，并标注是否被测试过。
 
-# Step 3 · AI 综合判断（核心信号逻辑）
-严格按以下步骤思考并输出详细理由：
+**Pivot Points（辅助确认）**：
+用最近一根 4h K 线计算标准 Pivot：
+- Pivot = (High + Low + Close) / 3
+- R1 = 2×Pivot - Low，S1 = 2×Pivot - High
+- R2/S2 同理
+当前价格接近 S1/R1 或 Order Block 时优先级更高。
 
+# Step 3 · AI 综合判断（核心逻辑）
 **做多信号（Long）**：
-- 当前价格已触及或进入支撑位区间（距离 ≤ 0.5%）
-- 最近 3 根 15 分钟 K 线均为上涨 K 线（收盘价 > 开盘价）
+- 当前价格触及或进入看涨 Order Block 或 S1 附近（距离 ≤ 0.5%）
+- 最近 2 根 15 分钟 K 线均为上涨 K 线（收盘 > 开盘）
 
 **做空信号（Short）**：
-- 当前价格已触及或进入压力位区间（距离 ≤ 0.5%）
-- 最近 3 根 15 分钟 K 线均为下跌 K 线（收盘价 < 开盘价）
+- 当前价格触及或进入看跌 Order Block 或 R1 附近（距离 ≤ 0.5%）
+- 最近 2 根 15 分钟 K 线均为下跌 K 线（收盘 < 开盘）
 
-如果两个信号都没有 → 本轮跳过
+无信号 → 跳过
 
 # Step 4 · 执行下单（仅 BTC 市价全仓 4x）
-当信号触发时，使用 swap_place_order 市价开仓：
+使用 swap_place_order：
 - instId = "BTC-USDT-SWAP"
 - side = <buy 或 sell>
 - ordType = "market"
 - posSide = <long 或 short>
 - tdMode = "cross"
-- sz = <计算使名义仓位价值 ≈ 账户可用余额 × 4 的张数（4x 全仓杠杆）>
+- sz = <计算使名义价值 ≈ 账户可用余额 × 4 的张数>
 - tag = "agentTradeKit"
 
-# Step 5 · 立即设置止盈止损（基于实际开仓价）
-开仓成功后，立刻调用 swap_place_algo_order：
-- **止损（Stop Loss）**：
-  - 多头：实际开仓价 × 0.99（往下 1%）
-  - 空头：实际开仓价 × 1.01（往上 1%）
-- **止盈（Take Profit）**：
-  - 多头：最近的压力位
-  - 空头：最近的支撑位
-- 数量 = 全部持仓数量
+# Step 5 · 立即设置止盈止损
+开仓后立刻调用 swap_place_algo_order：
+- 止损：开仓价 × 0.99（多）或 × 1.01（空）
+- 止盈：对侧最近的 Order Block 或 R2/S2
+- 数量 = 全部持仓
 
-# 严格风控规则（必须无条件遵守）
-- 每次只使用账户全部可用资金的 4x 杠杆（全仓）
-- 单笔止损固定 1% 价格波动（对应账户约 4% 风险）
-- 当日累计浮亏超过 8% 时停止所有新开仓
-- 资金费率极端（>0.15% 或 <-0.15%）时跳过本轮
-- 所有操作仅在**模拟交易模式**下执行，且**只对 BTC-USDT-SWAP 开单**
+# 严格风控
+- 全仓 4x 杠杆
+- 单笔止损固定 1%（对应账户约 4% 风险）
+- 当日浮亏 > 8% 停止开仓
+- 仅模拟模式 + 只做 BTC
 
 # 输出要求
-每次触发必须先输出：
-1. BTC 当前的支撑位 / 压力位 + 当前价格距离
-2. 最近 3 根 15 分钟 K 线的方向判断
-3. 完整推理过程和最终决策（做多/做空/跳过）
-4. 实际工具调用详情（包括计算后的 sz 值、止盈止损具体价格）
+每次必须先输出：
+1. 当前 BTC 的 Order Block 位置 + Pivot Points（S1/R1/R2/S2）
+2. 15 分钟 3 根 K 线判断
+3. 完整推理 + 决策
+4. 工具调用详情
