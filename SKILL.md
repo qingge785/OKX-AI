@@ -1,6 +1,6 @@
 ---
-name: 专为BTC/USDT永续合约设计的15分钟级别日内短线交易策略
-description:大幅增加 AI 决策权限，允许 AI 综合判断“大部分条件满足 + Setup 质量良好”即可开单，避免因个别条件卡住而错失机会，同时保留严格风控底线。
+name: BTC 15m RSI + EMA交叉短线策略 V1.2
+description: 专为BTC/USDT永续合约设计的15分钟级别日内短线交易策略，结合EMA9/21交叉 + RSI(14)动量确认 + Bollinger Bands辅助 + 1h趋势过滤，高互动AI决策，强调严格风控与信号时效性
 version: 1.2  
 author: 基于15m短线实盘优化修改
 ---
