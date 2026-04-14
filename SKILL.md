@@ -99,7 +99,7 @@ AI 综合评估后，认为**大部分核心条件满足**，且**整体交易Se
 **SL**: XXXX (风险约 1% 或 X USDT)  
 **TPs**: TP1 (1:1) XXXX | TP2 (1:2) XXXX | TP3 (1:3) XXXX  
 **Indicators**: RSI(14)=XX.X | EMA9=XXXX | EMA21=XXXX | BB中轨=XXXX | ATR=XX.X | 1h趋势=多头/空头/震荡  
-**Confidence**: XX% (高/中/低)  
+**Confidence**: XX% (高/中/低) , 给我AI评估的置信度
 **Reason**: 用自然语言详细解释你的推理过程（**必须包含**：各主要条件的满足程度（强/中/弱）、整体Setup质量评估、为什么决定开单或放弃、具体权衡了哪些不完美条件、潜在风险、建议持仓时间等）
 
 **无有效信号时**直接输出：  
